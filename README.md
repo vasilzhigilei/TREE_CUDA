@@ -8,13 +8,14 @@ This code uses [TreeMiner](http://www.cs.rpi.edu/~zaki/www-new/pmwiki.php/Softwa
 
 `1. make`
 
-`2. ./gpuTreeMiner -i<input_file> -s<support> -o<print output> -p<prune> -u<unique counting>`
+`2. ./gpuTreeMiner -i<input_file> -s<support> -c<print output> -p<prune> -u<unique counting> -o<output_file>`
 
-        -i,      dataset of trees
+        -i,      input file of tree dataset
         -s,      support threshold between (0,1)
-        -o,      <True> if printing the freuqnt subtrees. Default is <False>
+        -c,      <True> if printing the frequent subtrees. Default is <False>
         -p,      <True> if pruning the database, <False> otherwise. Default is <True>
         -u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True>
+		-o,		 output file for results. Default is <output.txt>
 
 
 You can set "Allow gap between itemsets" to "0" in order to mine the frequent consequtive itemsets. 

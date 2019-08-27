@@ -1,3 +1,13 @@
+//============================================================================
+// treeminer.cu
+// 
+// Main file that calls a cuda kernel to compute the SPM tree mining algorithm
+//
+// Invocation may be read in the README.md
+//
+//============================================================================
+
+
 #include <string>
 #include <unistd.h>
 #include <stdio.h>
@@ -17,6 +27,7 @@
 #include "hashtree.h"
 #include "stats.h"
 #include "cuda.h"
+#include "tools.h"
 
 #include "cuda_kernel.cu"
 
@@ -37,6 +48,7 @@ double preproc_time;
 
 //global vars
 string *infile;
+string *outfile = new string("summary.out");
 HashTree *CandK = NULL;
 FreqHT FK;
 Dbase_Ctrl_Blk *DCB;
@@ -52,7 +64,7 @@ int DBASE_MAXITEM;
 int DBASE_NUM_TRANS;
 
 //default flags
-bool output = false; //don't print freq subtrees
+bool output_console = false; //don't print freq subtrees to console
 bool count_unique = true; //count support only once per tree
 sort_vals sort_type = nosort; //default is to sort in increasing order
 prune_vals prune_type = prune; //prune candidates by default
@@ -75,16 +87,17 @@ void parse_args(int argc, char **argv) {
 	int c;
 
 	if (argc < 5){
-		cout << "usage: gpuTreeMiner -i<input_file> -s<support> -o<print output> -p<prune> -u<unique counting>\n";
+		cout << "usage: gpuTreeMiner -i<input_file> -s<support> -c<print output> -p<prune> -u<unique counting> -o<output_file>\n";
 		cout << " -i,      dataset of trees\n";
 		cout << " -s,      support threshold between (0,1)\n";
-		cout << " -o,      <True> if printing the freuqnt subtrees. Default is <False> \n";
+		cout << " -c,      <True> if printing the frequent subtrees. Default is <False> \n";
 		cout << " -p,      <True> if pruning the database, <False> otherwise. Default is <True> \n";
 		cout << " -u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True> \n";
+		cout << " -o,      output file for results summary. Output is appended, not overwritten. Default is <summary.out>";
 		exit(0);
 	}
 	else {
-		while ((c = getopt(argc, argv, "bh:i:op:s:S:uz:")) != -1) {
+		while ((c = getopt(argc, argv, "bh:i:cp:s:S:uz:o:")) != -1) {
 			switch (c) {
 			case 'b':
 				Dbase_Ctrl_Blk::binary_input = true;
@@ -96,8 +109,14 @@ void parse_args(int argc, char **argv) {
 				infile = new string(optarg);
 				//sprintf(infile,"%s",optarg);
 				break;
-			case 'o': //print freq subtrees
-				output = true;
+			case 'c': //print freq subtrees
+				if (optarg == "True" || optarg == "true") {
+					output_console = true;
+				}
+				else {
+					// in case False or any other strings are input
+					output_console = false;
+				}
 				break;
 			case 'p':
 				prune_type = (prune_vals) atoi(optarg);
@@ -113,6 +132,9 @@ void parse_args(int argc, char **argv) {
 				break;
 			case 'z':
 				sort_type = (sort_vals) atoi(optarg);
+				break;
+			case 'o':
+				outfile = new string(optarg);
 				break;
 			}
 		}
@@ -199,7 +221,7 @@ void get_F1() {
 	DCB->FreqMap = new int[DBASE_MAXITEM];
 	for (i = 0, j = 0; i < DBASE_MAXITEM; i++) {
 		if (itcnt[it_order[i]] >= MINSUPPORT) {
-			if (output)
+			if (output_console)
 				cout << i << " - " << itcnt[it_order[i]] << endl;
 			DCB->FreqIdx[j] = it_order[i];
 			DCB->FreqMap[it_order[i]] = j;
@@ -359,7 +381,7 @@ void get_F2() {
 				}
 			}
 			if (eq != NULL) {
-			if (output)
+			if (output_console)
 				cout << DCB->FreqIdx[i] << " " << DCB->FreqIdx[j] << " - "
 						<< itcnt2[i][j] << endl;
 			}
@@ -735,7 +757,7 @@ bool get_frequent(int iter, HashTree *ht, int &freqcnt) {
 
 			freqcnt += eq->nlist().size();
 			//cout << "freqcnt  " << freqcnt << " " << eq->nlist().size() << endl;
-			if (output && !eq->nlist().empty())
+			if (output_console && !eq->nlist().empty())
 				eq->print(DCB);
 
 			if (eq->nlist().empty()) {
@@ -888,6 +910,8 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU resu
 	}
 }
 
+
+
 void get_Fk() {
 	int candcnt=0, freqcnt=0;
 	TimeTracker tt;
@@ -895,21 +919,18 @@ void get_Fk() {
 
 	////////////////////////////
 	/////////GPU////////////////
-	cudaError_t err;
+	//cudaError_t err; // error handling implemented
 	int* trees_d;
 	int* tr_start_ind_d;
 	int* freq_result_d;
 	int* cand_d;
 	int* cand_h;
 
-	err = cudaMalloc(&trees_d, DCB->DB_array_size*sizeof(int));
-	err = cudaMemcpy(trees_d, DCB->trees_h, DCB->DB_array_size*sizeof(int), cudaMemcpyHostToDevice);
+	ERROR_CHECK(cudaMalloc(&trees_d, DCB->DB_array_size*sizeof(int)));
+	ERROR_CHECK(cudaMemcpy(trees_d, DCB->trees_h, DCB->DB_array_size*sizeof(int), cudaMemcpyHostToDevice));
 
-	err = cudaMalloc(&tr_start_ind_d, DBASE_NUM_TRANS*sizeof(int));
-	err = cudaMemcpy(tr_start_ind_d, DCB->tr_start_ind_h, DBASE_NUM_TRANS*sizeof(int), cudaMemcpyHostToDevice);
-
-
-	if(err != cudaSuccess) printf("error in cuda mempcy\n");
+	ERROR_CHECK(cudaMalloc(&tr_start_ind_d, DBASE_NUM_TRANS*sizeof(int)));
+	ERROR_CHECK(cudaMemcpy(tr_start_ind_d, DCB->tr_start_ind_h, DBASE_NUM_TRANS*sizeof(int), cudaMemcpyHostToDevice));
 
 	for (int iter = 3; !CandK->isempty(); iter++) {
 		tt.Start();
@@ -926,25 +947,24 @@ void get_Fk() {
 		if (candcnt > 0) {
 
 			kernel_tt.Start();
-			err = cudaMalloc(&cand_d, (2*iter-1)*candcnt*sizeof(int));
-			err = cudaMemcpy(cand_d, cand_h, (2*iter-1)*candcnt*sizeof(int), cudaMemcpyHostToDevice);
+			ERROR_CHECK(cudaMalloc(&cand_d, (2*iter-1)*candcnt*sizeof(int)));
+			ERROR_CHECK(cudaMemcpy(cand_d, cand_h, (2*iter-1)*candcnt*sizeof(int), cudaMemcpyHostToDevice));
 
-				err = cudaMallocManaged(&freq_result_d, candcnt*sizeof(int));
-				err = cudaMemset(freq_result_d, 0, candcnt*sizeof(int));
-				if(err != cudaSuccess) printf("error in cuda mempcy\n");
+			ERROR_CHECK(cudaMallocManaged(&freq_result_d, candcnt*sizeof(int)));
+			ERROR_CHECK(cudaMemset(freq_result_d, 0, candcnt*sizeof(int)));
 
-				//create block size and grid size and constant memory size
-				int threadNum = block_dim;
+			//create block size and grid size and constant memory size
+			int threadNum = block_dim;
 
-				//int blockNum = (DCB->blk_count_h> 65535) ? 65535 : DCB->blk_count_h;
-				int blockNum = (DBASE_NUM_TRANS/threadNum > 65535) ? 65535 : (DBASE_NUM_TRANS-1)/threadNum+1;
+			//int blockNum = (DCB->blk_count_h> 65535) ? 65535 : DCB->blk_count_h;
+			int blockNum = (DBASE_NUM_TRANS/threadNum > 65535) ? 65535 : (DBASE_NUM_TRANS-1)/threadNum+1;
 
-				frequency_counter<<<blockNum,threadNum>>>(trees_d, tr_start_ind_d,
-						DBASE_NUM_TRANS, iter, candcnt, cand_d, freq_result_d);
+			frequency_counter<<<blockNum,threadNum>>>(trees_d, tr_start_ind_d,
+					DBASE_NUM_TRANS, iter, candcnt, cand_d, freq_result_d);
 
-				if ((err = cudaDeviceSynchronize()) != cudaSuccess) printf("error in cuda device synchronization\n");
+			if ((cudaDeviceSynchronize()) != cudaSuccess) printf("error in cuda device synchronization\n");
 
-				kernel_time += kernel_tt.Stop();
+			kernel_time += kernel_tt.Stop();
 
 			if (prune_type == prune)
 				FK.clearall();
@@ -1032,7 +1052,7 @@ int main(int argc, char **argv) {
 	cout << "TIME = " << tottime << endl;
 
 	//write results to summary file
-	ofstream summary("summary.out", ios::app);
+	ofstream summary(outfile->c_str(), ios::app);
 	summary << "HTREEMINER ";
 	switch (sort_type) {
 	case incr:
