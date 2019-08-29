@@ -3,11 +3,11 @@
 // 
 // Main file that calls a cuda kernel to compute the SPM tree mining algorithm
 //
-// Invocation may be read in the README.md
+// Invocation may be read in README.md
 //
 //============================================================================
 
-
+// LIBRARIES
 #include <string>
 #include <unistd.h>
 #include <stdio.h>
@@ -18,8 +18,7 @@
 #include <vector>
 #include <set>
 
-
-//headers
+// HEADERS
 #include "treeminer.h"
 #include "timetrack.h"
 #include "calcdb.h"
@@ -29,10 +28,10 @@
 #include "cuda.h"
 #include "tools.h"
 
+// CUDA KERNEL
 #include "cuda_kernel.cu"
 
-//GPU variables
-//uint32_t* begin_block_map=NULL;
+// GPU VARIABLES
 int warp_size=0;
 int shared_memory_size=0; // in bytes
 int node_size=-1;
@@ -40,13 +39,13 @@ int block_dim=512;
 int maxNodeSz=200;
 int blk_max_size=0;
 
-//Timing
+// TIMING
 TimeTracker kernel_tt;
 double kernel_time;
 TimeTracker preproc_tt;
 double preproc_time;
 
-//global vars
+// GLOBAL VARIABLES
 string *infile;
 string *outfile = new string("summary.out");
 HashTree *CandK = NULL;
@@ -63,7 +62,7 @@ int MINSUPPORT = -1;
 int DBASE_MAXITEM;
 int DBASE_NUM_TRANS;
 
-//default flags
+// DEFAULT FLAGS
 bool output_console = false; //don't print freq subtrees to console
 bool count_unique = true; //count support only once per tree
 sort_vals sort_type = nosort; //default is to sort in increasing order
@@ -82,6 +81,20 @@ bool F1cmp(int x, int y) {
 		return !res;
 }
 
+
+/**
+*
+* Parses arguments based on user set flags
+*
+* Flags:
+*		-i,      input file of tree dataset
+*		-s,      support threshold between (0,1)
+*		-c,      <True> if printing the frequent subtrees to console. Default is <False>
+*		-p,      <True> if pruning the database, <False> otherwise. Default is <True>
+*		-u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True>
+*		-o,      output file for results summary. Output is appended, not overwritten. Default is "summary.out"
+*
+*/
 void parse_args(int argc, char **argv) {
 	extern char * optarg;
 	int c;
@@ -90,10 +103,10 @@ void parse_args(int argc, char **argv) {
 		cout << "usage: gpuTreeMiner -i<input_file> -s<support> -c<print output> -p<prune> -u<unique counting> -o<output_file>\n";
 		cout << " -i,      dataset of trees\n";
 		cout << " -s,      support threshold between (0,1)\n";
-		cout << " -c,      <True> if printing the frequent subtrees. Default is <False> \n";
+		cout << " -c,      <True> if printing the frequent subtrees to console. Default is <False> \n";
 		cout << " -p,      <True> if pruning the database, <False> otherwise. Default is <True> \n";
 		cout << " -u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True> \n";
-		cout << " -o,      output file for results summary. Output is appended, not overwritten. Default is <summary.out>";
+		cout << " -o,      output file for results summary. Output is appended, not overwritten. Default is \"summary.out\"";
 		exit(0);
 	}
 	else {
@@ -107,16 +120,17 @@ void parse_args(int argc, char **argv) {
 				break;
 			case 'i': //input files
 				infile = new string(optarg);
-				//sprintf(infile,"%s",optarg);
 				break;
 			case 'c': //print freq subtrees
+				/*printf("Input file: \"%s\"\n", optarg);
 				if (optarg == "True" || optarg == "true") {
 					output_console = true;
 				}
 				else {
 					// in case False or any other strings are input
 					output_console = false;
-				}
+				}*/
+				output_console = true;
 				break;
 			case 'p':
 				prune_type = (prune_vals) atoi(optarg);
@@ -142,12 +156,6 @@ void parse_args(int argc, char **argv) {
 }
 
 void erase_set(set<vector<int> > &freq_set){ 
-//
-//	for(set<vector<int>* >::iterator it = freq_set.begin(); it != freq_set.end(); it++){
-//        //vector<int>* tmp = *it;
-//		//delete tmp;
-//        delete *it;
-//	}
 	freq_set.erase(freq_set.begin(),freq_set.end());
 }
 
@@ -191,7 +199,7 @@ void get_F1() {
 		DBASE_NUM_TRANS++;
 	}
 
-	//set the value of MINSUPPORT
+	// SET VALUE OF MINSUPPORT
 	if (MINSUPPORT == -1)
 		MINSUPPORT = (int) (MINSUP_PER * DBASE_NUM_TRANS + 0.5);
 
@@ -201,7 +209,7 @@ void get_F1() {
 	cout << "DBASE_MAXITEM : " << DBASE_MAXITEM << endl;
 	cout << "MINSUPPORT : " << MINSUPPORT << " (" << MINSUP_PER << ")" << endl;
 
-	//count number of frequent items
+	// COUNT NUMBER OF FREQUENT ITEMS
 	DCB->NumF1 = 0;
 	for (i = 0; i < DBASE_MAXITEM; i++)
 		if (itcnt[i] >= MINSUPPORT)
@@ -216,7 +224,7 @@ void get_F1() {
 		sort(&it_order[0], &it_order[DBASE_MAXITEM], F1cmp);
 	}
 
-	//construct forward and reverse mapping from items to freq items
+	// CONSTRUCT FORWARD & REVERSE MAPPNG FROM ITEMS TO FREQ ITEMS
 	DCB->FreqIdx = new int[DCB->NumF1];
 	DCB->FreqMap = new int[DBASE_MAXITEM];
 	for (i = 0, j = 0; i < DBASE_MAXITEM; i++) {
@@ -261,31 +269,27 @@ void get_F2() {
 	//itcnt2 is a matrix of pairs p, p.first is count, p.second is flag
 	int **itcnt2 = new int*[DCB->NumF1];
 	int **flgs = new int*[DCB->NumF1];
-	//unsigned int **itcnt2 = new unsigned int *[DCB->NumF1];
+	
 	for (i = 0; i < DCB->NumF1; i++) {
 		itcnt2[i] = new int[DCB->NumF1];
 		flgs[i] = new int[DCB->NumF1];
-		//cout << "alloc " << i << " " << itcnt2[i] << endl;
+		
 		for (j = 0; j < DCB->NumF1; j++) {
 			itcnt2[i][j] = 0;
 			flgs[i][j] = -1;
 		}
 	}
 
-	//Creating DB array
+	// CREATE DB ARRAY
 	DCB->DB_array = new int*[DBASE_NUM_TRANS];
 	multimap<int, int> tree_sz_mp; //key: size of the tree, value: list of tree of that size. For sorting the dataset
 	vector<int>* freqCand;
 	int nod_num = 0;
 
 	while (DCB->get_next_trans()) {
-		//cout << "Before pruning: " << endl;
-		//print_array(DCB->TransAry, DCB->TransSz);
 		nod_num = 0;
 
 		DCB->get_valid_trans();
-		//cout << "After pruning: " << endl;
-		//print_array(DCB->TransAry, DCB->TransSz);
 
 		//Elaheh: creating DB array with the valid transaction (removing infrequent items), the size of the transaction will be decreased here.
 		if(DCB->TransSz > 1) {
@@ -339,17 +343,13 @@ void get_F2() {
 		for(multimap<int, int>::iterator it=tree_sz_mp.begin(); it!=tree_sz_mp.end();it=tree_sz_mp.upper_bound(it->first)){
 			pair<multimap<int, int>::iterator, multimap<int, int>::iterator>  eql_rng = tree_sz_mp.equal_range(it->first);
 			for(multimap<int, int>::iterator it2=eql_rng.first;it2!=eql_rng.second;it2++){
-				//cout << it2->second << endl;
 				DB_array_tmp[loc_in_sorted_db] = DCB->DB_array[it2->second];
 				loc_in_sorted_db++;
 			}
 			treeSz_loc_mp[it->first]=loc_in_sorted_db-1;
 		}
-		//TODO deleting DB_array
 		DCB->DB_array = DB_array_tmp;
 
-    
-	//Elaheh: change the size of max
 	DBASE_NUM_TRANS = tree_id;
 
 	int F2cnt = 0;
@@ -363,7 +363,6 @@ void get_F2() {
 	for (i = 0; i < DCB->NumF1; i++) {
 		eq = NULL;
 		for (j = 0; j < DCB->NumF1; j++) {
-			//cout << "access " << i << " " << j << endl;
 			if (itcnt2[i][j] >= MINSUPPORT) {
 				F2cnt++;
 				if (eq == NULL) {
@@ -373,7 +372,6 @@ void get_F2() {
 				eq->add_node(j, 0, itcnt2[i][j]);
 
 				if (prune_type == prune){
-									//FK.add(eq);
 					freqCand = new vector<int>;
 					freqCand->push_back(i);
 					freqCand->push_back(j);
@@ -394,9 +392,7 @@ void get_F2() {
 	}
 
 	for (i = 0; i < DCB->NumF1; i++) {
-		//cout << "dealloc " << i << " " << itcnt2[i] << endl;
 		delete[] itcnt2[i];
-		//cout << "dealloc " << i << " " << flgs[i] << endl;
 		delete[] flgs[i];
 	}
 
@@ -416,16 +412,16 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
 		return;
 	}
 
-	//prune based on frequent subtree
+	// PRUNE BASED ON FREQUENT SUBTREE
 	static vector<int> cand;
 	static vector<int> subtree;
 
 	int hval;
 	int scope, scnt;
 
-	//form the candidate preifx
+	// FORM THE CANDIDATE PREFIX
 	cand = neq->prefix();
-	scnt = neq->get_scope(pos, scope); //what is the scope of node.pos
+	scnt = neq->get_scope(pos, scope); //checks the scope of node.pos
 
 	while (scnt > scope) {
 		cand.push_back(BranchIt);
@@ -437,11 +433,12 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
 	int cnt=0;
 	vector<int> candTmp;
 	vector<int>::iterator it1, it2;
-	//pruning
+	
+	// PRUNING
 	candTmp = cand;
 	int num_root_visiting=0; //used for checking if deleting root node or not
 
-    //Checking the root
+    // CHECKING THE ROOT
     if(find(candTmp.begin(), candTmp.end(), BranchIt) == candTmp.end()){
     	for(it1=candTmp.begin(); it1 != candTmp.end()-1; it1++){
     		candTmp.erase(it1);
@@ -453,7 +450,7 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
     	}
     }
 
-    //Checking the root candidate
+    // CHECKING THE ROOT CANDIDATE
 	candTmp.clear();
 	candTmp = cand;
     cnt=0;
@@ -477,7 +474,7 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
 		candTmp = cand;
 	}
 
-    //Checking the rest of the nodes
+    // CHECKING THE REST OF THE NODES
 	for(it1=candTmp.begin()+1; it1 != candTmp.end()-1; it1++){
 		if(*it1 != BranchIt){
 			cnt=0;
@@ -487,8 +484,6 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
 				}
 				else{
 					cnt--;
-					//if(cnt == 0)
-					//	num_root_visiting++;
 					if(cnt==-1){
 						candTmp.erase(it1);
 						candTmp.erase(it2-1);
@@ -499,7 +494,6 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
 		if(candTmp.size() == cand.size()){
 			candTmp.erase(it1);
 		}
-		//cout << candTmp << endl;
 		if(freq_cand.find(candTmp) == freq_cand.end()){
 			return;
 		}
@@ -508,8 +502,6 @@ void add_node(int iter, Eqclass *neq, int val, int pos) {
         }
 	}
 	//otherwise add the node
-	//cout << "pos: " << pos << endl;
-	//cout << "val: " << val << endl;
 	neq->add_node(val, pos);
 }
 
@@ -517,13 +509,9 @@ void cand_gen(int iter, Eqclass &eq, list<Eqclass *> &neweql) {
 	Eqclass *neq;
 	list<Eqnode>::iterator ni, nj;
 
-	//cout << "CAND GEN " << eq << endl;
-
-
 	for (ni = eq.nlist().begin(); ni != eq.nlist().end(); ++ni) {
 		neq = NULL;
 		for (nj = eq.nlist().begin(); nj != eq.nlist().end(); ++nj) {
-			//cout << "NINJ " << *ni << " -- " << *nj << endl;
 			if (ni->pos < nj->pos)
 				continue;
 			if (neq == NULL) {
@@ -533,19 +521,16 @@ void cand_gen(int iter, Eqclass &eq, list<Eqclass *> &neweql) {
 			}
 			if (ni->pos > nj->pos)
 				add_node(iter, neq, nj->val, nj->pos);
-			else { //(ni->pos == nj->pos){
-				   //if (ni->val <= nj->val)
+			else { 
 				add_node(iter, neq, nj->val, nj->pos);
 				add_node(iter, neq, nj->val, neq->prefix().size() - 1);
 			}
 		}
 		if (!neq->nlist().empty()) {
-            
 			neweql.push_back(neq);
-			//cout << "NEQCLAS " << *neq << endl;
 		} else
 			delete neq;
-	}
+		}
 }
 
 void candidate_generation(int iter, HashTree *ht, int &candcnt) {
@@ -557,7 +542,6 @@ void candidate_generation(int iter, HashTree *ht, int &candcnt) {
 	while (!oldeql->empty()) {
 		eq = oldeql->front();
 
-		//cout << "OLD " << *eq << endl;
 		cand_gen(iter, *eq, *neweql);
 		delete eq;
 		ht->count()--;
@@ -566,7 +550,6 @@ void candidate_generation(int iter, HashTree *ht, int &candcnt) {
 
 	list<Eqclass *>::iterator ni;
 	for (ni = neweql->begin(); ni != neweql->end(); ni++) {
-		//ht->add_element(*ni); //rehash
 		ht->eqlist()->push_back(*ni);
 		ht->count()++;
 		candcnt += (*ni)->nlist().size();
@@ -598,9 +581,6 @@ bool incr_nodes(Eqclass *eq, int tpos, int tscope, stack<int> &stk,
 			fcnt++;
 			continue;
 		}
-
-		//for (int d = 0; d < stk.size(); d++) cout << "\t";
-		//cout << "search " << ni->val << " " << ni->pos;
 
 		ttscope = tscope;
 		scope = ttscope;
@@ -639,7 +619,6 @@ bool incr_nodes(Eqclass *eq, int tpos, int tscope, stack<int> &stk,
 				break;
 
 			if (ni->val == DCB->DB_array[DCB->db_iter][i + 1]) {
-				//cout << " found at " << i << " " << scope;
 				if (count_unique) {
 					if (!cflgs[f]) {
 						cflgs[f] = true;
@@ -650,7 +629,6 @@ bool incr_nodes(Eqclass *eq, int tpos, int tscope, stack<int> &stk,
 					ni->sup++;
 			}
 		}
-		//cout << endl;
 
 		while (!tstk.empty()) {
 			stk.push(tstk.top());
@@ -706,13 +684,9 @@ bool incr_support(Eqclass *eq, int tpos, int ppos, int tscope, stack<int> &stk,
 		if (DCB->DB_array[DCB->db_iter][i + 1] == eq->prefix()[ppos]) {
 			stk.push(scope);
 
-			//for (int d = 0; d < stk.size(); d++) cout << "\t";
-
 			if (ppos == eq->prefix().size() - 1) {
-				//cout << ppos << " found at " << i << " " << scope << endl;
 				allfound = incr_nodes(eq, i + 1, scope, stk, cflgs);
 			} else {
-				//cout << ppos << " recurse at " << i << " " << scope << endl;
 				allfound = incr_support(eq, i + 1, ppos + 1, scope, stk, cflgs);
 			}
 			stk.pop();
@@ -730,7 +704,6 @@ bool incr_support(Eqclass *eq, int tpos, int ppos, int tscope, stack<int> &stk,
 
 
 static bool notfrequent(Eqnode &n) {
-	//cout << "IN FREQ " << n.sup << endl;
 	if (n.sup >= MINSUPPORT)
 		return false;
 	else
@@ -749,20 +722,20 @@ bool get_frequent(int iter, HashTree *ht, int &freqcnt) {
 
 		for (ni = eql->begin(); ni != eql->end() && !eql->empty();) {
 			eq = *ni;
-			//eq->print(DCB);
-			//cout << "processing " << eq->prefix() << endl;
+
 			list<Eqnode>::iterator nj;
 			nj = remove_if(eq->nlist().begin(), eq->nlist().end(), notfrequent);
 			eq->nlist().erase(nj, eq->nlist().end());
 
 			freqcnt += eq->nlist().size();
-			//cout << "freqcnt  " << freqcnt << " " << eq->nlist().size() << endl;
+
 			if (output_console && !eq->nlist().empty())
 				eq->print(DCB);
 
 			if (eq->nlist().empty()) {
 				ni = eql->erase(ni);
-				CandK->count()--;}
+				CandK->count()--;
+			}
 			else {
 				//cout << "push to FK " << eq->nlist().size() << endl;
 				if (prune_type == prune)
@@ -785,10 +758,6 @@ bool get_frequent(int iter, HashTree *ht, int &freqcnt) {
 			} else
 				hi++;
 		}
-		//if (ecnt == ht->htable().size()){
-		//delete ht;
-		//   empty_leaf = true;
-		//}
 	}
 
 	return empty_leaf;
@@ -800,13 +769,13 @@ int* create_cand_array(int candcnt, int iter){
 	int lastBranchDepth = 0;
 	list<Eqclass *> *eql = CandK->eqlist();
 	list<Eqclass *>::iterator ei;
-	vector<int> righ_path_pos; //its position in the prefix vector
+	vector<int> righ_path_pos; //position in the prefix vector
 
 	for(ei = eql->begin(); ei != eql->end(); ei++){
 		Eqclass* eq = *ei;
 		list<Eqnode>::iterator ni;
 
-		//create right most path
+		// CREATE RIGHTMOST PATH
 		righ_path_pos.clear();
 		for(int i=0; i<eq->prefix().size();i++){
 			if(eq->prefix()[i] != BranchIt){
@@ -842,7 +811,17 @@ int* create_cand_array(int candcnt, int iter){
 	return cand_array;
 }
 
-void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU results and update their support
+
+/**
+*
+* Receive GPU results & update their support
+*
+* @param candcnt Candidate count
+* @param freqcnt Frequency count
+* @param gpu_result Results from GPU kernel invocation
+*
+*/
+void update_sup(int& candcnt, int& freqcnt, int* gpu_result){
 
 	list<Eqclass *> *eql = CandK->eqlist();
 	list<Eqclass *>::iterator ei;
@@ -857,7 +836,7 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU resu
 			candIt++;
 		}
 
-	//Check the frequency
+	// CHECK FREQUENCY
 	list<Eqnode>::iterator nj;
 	list<Eqnode>::iterator njj;
 	nj = remove_if(eq->nlist().begin(), eq->nlist().end(), notfrequent);
@@ -876,7 +855,6 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU resu
 	else {
 		//cout << "push to FK " << eq->nlist().size() << endl;
 		if (prune_type == prune){
-			//FK.add(eq);
 			for(njj = eq->nlist().begin(); njj !=  eq->nlist().end(); njj++){
                 cnt = -1;
 				cand = new vector<int>;
@@ -896,7 +874,6 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU resu
                 }
 				(*cand).push_back(njj->val);
                 freq_cand.insert((*cand));
-                //cout << *cand << endl;
 			}
 		}
 		ei++;
@@ -913,19 +890,22 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){ //get the GPU resu
 
 
 void get_Fk() {
+	// Fk SETUP
 	int candcnt=0, freqcnt=0;
+
+	// SETUP TIME TRACKER
 	TimeTracker tt;
 	double te;
 
 	////////////////////////////
 	/////////GPU////////////////
-	//cudaError_t err; // error handling implemented
 	int* trees_d;
 	int* tr_start_ind_d;
 	int* freq_result_d;
 	int* cand_d;
 	int* cand_h;
 
+	// DEVICE MEMORY ALLOCATION AND COPYING FROM DATABASE
 	ERROR_CHECK(cudaMalloc(&trees_d, DCB->DB_array_size*sizeof(int)));
 	ERROR_CHECK(cudaMemcpy(trees_d, DCB->trees_h, DCB->DB_array_size*sizeof(int), cudaMemcpyHostToDevice));
 
@@ -941,11 +921,10 @@ void get_Fk() {
 		candidate_generation(iter, CandK, candcnt);
 
 		cand_h = create_cand_array(candcnt,iter);
-		//cout << "candidate array: " << endl;
-		//print_array(cand_h, candcnt*(2*iter-1));
 
 		if (candcnt > 0) {
 
+			// START KERNEL RUN TIME
 			kernel_tt.Start();
 			ERROR_CHECK(cudaMalloc(&cand_d, (2*iter-1)*candcnt*sizeof(int)));
 			ERROR_CHECK(cudaMemcpy(cand_d, cand_h, (2*iter-1)*candcnt*sizeof(int), cudaMemcpyHostToDevice));
@@ -953,10 +932,9 @@ void get_Fk() {
 			ERROR_CHECK(cudaMallocManaged(&freq_result_d, candcnt*sizeof(int)));
 			ERROR_CHECK(cudaMemset(freq_result_d, 0, candcnt*sizeof(int)));
 
-			//create block size and grid size and constant memory size
+			// SET GPU MEMORY DIMENSIONS (BLOCK SIZE, GRID SIZE, CONSTANT MEMORY SIZE)
 			int threadNum = block_dim;
 
-			//int blockNum = (DCB->blk_count_h> 65535) ? 65535 : DCB->blk_count_h;
 			int blockNum = (DBASE_NUM_TRANS/threadNum > 65535) ? 65535 : (DBASE_NUM_TRANS-1)/threadNum+1;
 
 			frequency_counter<<<blockNum,threadNum>>>(trees_d, tr_start_ind_d,
@@ -964,16 +942,18 @@ void get_Fk() {
 
 			if ((cudaDeviceSynchronize()) != cudaSuccess) printf("error in cuda device synchronization\n");
 
+			// STOP & APPEND KERNEL RUN TIME TO TOTAL KERNEL RUN TIME
 			kernel_time += kernel_tt.Stop();
 
 			if (prune_type == prune)
 				FK.clearall();
 
 			if (prune_type == prune){
-				//FK.clearall();
 				erase_set(freq_cand);
 			}
 			update_sup(candcnt,freqcnt,freq_result_d);
+
+			// FREE DEVICE MEMORY
 			cudaFree(freq_result_d);
 			cudaFree(cand_d);
 		}
@@ -985,7 +965,6 @@ void get_Fk() {
 
 	}
 	if (prune_type == prune){
-		//FK.clearall();
 		erase_set(freq_cand);
 	}
 }
@@ -1008,7 +987,6 @@ void create_gpu_stats(){
         trees_h_it++;
 
         for(int j=0; j<DCB->DB_array[i][0]; j++){
-        	//cout << DCB->DB_array[i][j] << endl;
             DCB->trees_h[trees_h_it] = DCB->DB_array[i][j+2];
             trees_h_it++;
             
@@ -1026,32 +1004,36 @@ void prune_infrq_nodes() {
 
 int main(int argc, char **argv) {
 
+	// START RUN TIME
 	TimeTracker tt;
 	tt.Start();
+
+	// PARSE ARGUMENTS TO VARIABLES
 	parse_args(argc, argv);
 
+	// GENERATE DATABASE AND GET F1 & F2 SEQUENCES
 	DCB = new Dbase_Ctrl_Blk(infile->c_str());
 	get_F1();
-	prune_infrq_nodes(); //prune dataset from infrequent nodes 
+	prune_infrq_nodes(); // prune dataset from infrequent nodes 
 	get_F2();
 
+	// GET DEVICE PROPERTIES
 	cudaDeviceProp  prop;
 	cudaGetDeviceProperties( &prop, 0 );
 	shared_memory_size=prop.sharedMemPerBlock;
 	warp_size=prop.warpSize;
 
-
+	// GENERATE GPU STATS
 	create_gpu_stats();
 
+	// RUN TO GET Fk SEQUENCES
 	get_Fk();
 
+	// END RUN TIME
  	double tottime = tt.Stop();
 	stats.tottime = tottime;
 
-	cout << stats << endl;
-	cout << "TIME = " << tottime << endl;
-
-	//write results to summary file
+	// WRITE RESULTS TO SUMMARY FILE
 	ofstream summary(outfile->c_str(), ios::app);
 	summary << "HTREEMINER ";
 	switch (sort_type) {
@@ -1078,10 +1060,16 @@ int main(int argc, char **argv) {
 	summary << stats << endl;
 	summary.close();
 
+
+	// PRINT RESULTS TO CONSOLE
+	cout << stats << endl;
+	cout << "TIME = " << tottime << endl;
+
 	cout << endl << "Total time = " << tottime << endl;
 	cout << "Kernel time = " << kernel_time << endl;
 	cout << "Pre-proc time = " << tottime - kernel_time << endl;
 
+	// EXIT SUCCESSFULLY
 	exit(0);
 }
 

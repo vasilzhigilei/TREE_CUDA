@@ -1,0 +1,1 @@
+./gpuTreeMiner -i input.txt -s 0.05 -c

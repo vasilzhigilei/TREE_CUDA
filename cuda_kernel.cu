@@ -1,3 +1,11 @@
+//============================================================================
+// cuda_kernel.cu
+// 
+// CUDA tree mining kernel
+//
+//============================================================================
+
+// LIBRARIES
 #include "cuda.h"
 #include <cuda_runtime.h>
 #include "stdio.h"
@@ -81,7 +89,6 @@ static __device__ int find_count(Tree& tr, Tree& can, MatchData* data) {
 
 
 			if (matched_count + 1 == cand_size) {
-				//matched_count++;
 				count++;
 				return 1;
 			} else {
@@ -135,55 +142,44 @@ static __device__ int find_count(Tree& tr, Tree& can, MatchData* data) {
  * @blk_tree_index This array maps the start tree index of bulk
  *
  * @freq_result This parameter is the output. Its size should be equal to the candidates count
+ *
  */
-
 static __global__ void frequency_counter(NodeType *trees, int* tr_start_ind,
-		int tr_cnt, int cand_size, int cand_cnt, int* cand, int* freq_result) {
+	
+	int tr_cnt, int cand_size, int cand_cnt, int* cand, int* freq_result) {
 
 	__shared__ StackType curr_blk[24176];
 	__shared__ int cand_sharedMem[200];
 
-		for (int c = 0; c < cand_cnt; c++) {
+	for (int c = 0; c < cand_cnt; c++) {
 
-			//copy the candidate to the shared memory
-			if(threadIdx.x < 2*cand_size-1){
-				cand_sharedMem[threadIdx.x] = cand[((2*cand_size-1)*c) + threadIdx.x];
-			}
-
-			int curr_tree_index = threadIdx.x + blockIdx.x * blockDim.x;
-
-			while (curr_tree_index < tr_cnt) {
-
-//				NodeType * under_process_tree =
-//						&curr_blk[tr_start_ind[curr_tree_index_in_bulk
-//								+ curr_bulk_start_tree_index] - curr_blk_str];
-
-				NodeType * under_process_tree =
-						&trees[tr_start_ind[curr_tree_index]];
-
-				Tree t;
-				t.size = under_process_tree[0];
-				t.labels = &under_process_tree[1];
-
-				Tree can;
-				can.size=2*cand_size-1;
-				can.labels=cand_sharedMem;
-
-//				int res=find_count(t,can,(MatchData*) &curr_blk[curr_blk_sze+threadIdx.x*3*cand_size]);
-				int res=find_count(t,can,(MatchData*) &curr_blk[threadIdx.x*3*cand_size]);
-
-				if(res>0) res = 1;
-				atomicAdd(&freq_result[c],res);
-
-				//curr_tree_index_in_bulk += blockDim.x;
-				curr_tree_index += gridDim.x * blockDim.x;
-				__syncthreads();
-			}
-
+		// COPY CANDIDATE TO SHARED MEMORY
+		if(threadIdx.x < 2*cand_size-1){
+			cand_sharedMem[threadIdx.x] = cand[((2*cand_size-1)*c) + threadIdx.x];
 		}
 
-//		curr_blk_ind += gridDim.x;
-//		__syncthreads();
+		int curr_tree_index = threadIdx.x + blockIdx.x * blockDim.x;
 
+		while (curr_tree_index < tr_cnt) {
+			NodeType * under_process_tree =
+					&trees[tr_start_ind[curr_tree_index]];
+
+			Tree t;
+			t.size = under_process_tree[0];
+			t.labels = &under_process_tree[1];
+
+			Tree can;
+			can.size=2*cand_size-1;
+			can.labels=cand_sharedMem;
+
+			int res=find_count(t,can,(MatchData*) &curr_blk[threadIdx.x*3*cand_size]);
+
+			if(res>0) res = 1;
+			atomicAdd(&freq_result[c],res);
+
+			curr_tree_index += gridDim.x * blockDim.x;
+			__syncthreads();
+		}
+	}
 }
 
