@@ -1,3 +1,11 @@
+//============================================================================
+// calcdb.cpp
+// 
+// Database generation and specifications for tree
+//
+//============================================================================
+
+// LIBRARIES
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
@@ -6,6 +14,7 @@
 
 using namespace std;
 
+// DATABASE VARIABLES - DESCRIPTIONS MAY BE FOUND IN calcdb.h
 int *Dbase_Ctrl_Blk::FreqIdx=NULL;
 int *Dbase_Ctrl_Blk::FreqMap=NULL;
 int Dbase_Ctrl_Blk::MaxTransSz=0;
@@ -23,7 +32,7 @@ int Dbase_Ctrl_Blk::db_iter=0;
 scope** Dbase_Ctrl_Blk::db_scope=NULL;
 int Dbase_Ctrl_Blk::DB_array_size = 0;
 
-//GPU
+// GPU - DESCRIPTIONS MAY BE FOUND IN calcdb.h
 int* Dbase_Ctrl_Blk::trees_h = NULL;
 int* Dbase_Ctrl_Blk::tr_start_ind_h = NULL;
 int* Dbase_Ctrl_Blk::blk_ind_h = NULL;
@@ -34,7 +43,9 @@ int Dbase_Ctrl_Blk::blk_count_h=0;
 
 vector<int> Dbase_Ctrl_Blk::DB_1D_array_sharedMem_starting(0);
 
-
+/**
+* Reads input file in order to create database
+*/
 Dbase_Ctrl_Blk::Dbase_Ctrl_Blk(const char *infile, const int buf_sz)
 {
    if (binary_input){
@@ -61,13 +72,19 @@ Dbase_Ctrl_Blk::Dbase_Ctrl_Blk(const char *infile, const int buf_sz)
    endpos = fd.tellg();
    fd.seekg(0,ios::beg);
 }
-   
+
+/**
+* Cleanup and free database memory
+*/
 Dbase_Ctrl_Blk::~Dbase_Ctrl_Blk()
 {
    delete [] buf;
    fd.close();
 }
 
+/**
+* Get first block of data fetched from input file
+*/
 void Dbase_Ctrl_Blk::get_first_blk()
 {
    readall=0;
@@ -141,8 +158,6 @@ int Dbase_Ctrl_Blk::get_next_trans ()
          TransAry = buf;
          cur_buf_pos = 0;
 
-         //cout << "ENDPOS " << fd.tellg() << " " << endpos << endl;
-
          return 1;
       }
    }   
@@ -182,9 +197,12 @@ void Dbase_Ctrl_Blk::get_next_trans_ext()
    cur_buf_pos = 0;
 }
 
-
-//Elaheh: remove infrequent items from the input transactions and add transaction size to the beginning of the TransAry for making DB_array
-// Also, re-map the frequent items in the dataset to the items from 0 to F1
+/**
+*
+* Remove infrequent items from input transactions and add transaction size to the beginning of TransAry for the making of DB_array
+* Remaps the frequent items in the dataset to the items from 0 to F1
+*
+*/
 void Dbase_Ctrl_Blk::get_valid_trans()
 {
    int i,j;
@@ -239,23 +257,25 @@ void Dbase_Ctrl_Blk::print_trans(){
   cout << endl;
 }
 
-//Elaheh
+/**
+* Vertical node structure for use in tree. Consists of an int label & int position
+*/
 struct vert_node{
 	int label;
 	int position;
 };
 
+/**
+*
+* Create vertical tree
+*
+*/
 void Dbase_Ctrl_Blk::create_vertical(int* tree, int*& vert_tree, int*& vert_tree_ref, scope*& db_scope) {
 	int j = 1;
 	deque<vert_node> q;
 	int previous_isBranch = 0;
 	vert_node* node;
 	int scope_upperBound = -1;
-
-	/*for(int t=0; t<tree[0]+1; t++) {
-			cout << tree[t] << " ";
-		}
-	cout << endl;*/
 
 	for (int i = 1; i < tree[0] + 1; i++) {
 		if (tree[i] != BranchIt) {
@@ -294,19 +314,4 @@ void Dbase_Ctrl_Blk::create_vertical(int* tree, int*& vert_tree, int*& vert_tree
 	db_scope[1].end = scope_upperBound;
 	vert_tree[0] = j-1;
 	vert_tree_ref[0] = j-1;
-
-	/*for(int t=0; t<vert_tree[0]+1; t++) {
-		cout << vert_tree[t] << " ";
-	}
-	cout << endl;
-
-	for(int t=0; t<vert_tree_ref[0]+1; t++) {
-			cout << vert_tree_ref[t] << " ";
-		}
-		cout << endl;
-	for(int t=0; t<tree[0]+1; t++) {
-				cout << "(" << db_scope[t].begin << "," << db_scope[t].end << ")" << endl;
-			}
-			cout << endl;*/
 }
-

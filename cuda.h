@@ -7,9 +7,6 @@
 typedef int NodeType;
 typedef int16_t StackType; //TODO calculate it based on the dataset
 
-//__constant__ NodeType C[16384];
-
-
 typedef struct {
 	NodeType* labels;
 	int size;

@@ -122,14 +122,6 @@ void parse_args(int argc, char **argv) {
 				infile = new string(optarg);
 				break;
 			case 'c': //print freq subtrees
-				/*printf("Input file: \"%s\"\n", optarg);
-				if (optarg == "True" || optarg == "true") {
-					output_console = true;
-				}
-				else {
-					// in case False or any other strings are input
-					output_console = false;
-				}*/
 				output_console = true;
 				break;
 			case 'p':
@@ -159,10 +151,19 @@ void erase_set(set<vector<int> > &freq_set){
 	freq_set.erase(freq_set.begin(),freq_set.end());
 }
 
+/**
+*
+* F1 Frequency Generation
+*
+* Initial frequency generation and pruning from database using minsup value
+*
+*/
 void get_F1() {
+	// SETUP TIME TRACKER
 	TimeTracker tt;
 	double te;
 
+	// F1 SETUP
 	int i, j, it;
 	vector<int> itcnt;
 	vector<int> flgs;
@@ -237,7 +238,8 @@ void get_F1() {
 		} else
 			DCB->FreqMap[it_order[i]] = -1;
 	}
-
+	
+	//console output F1 summary
 	cout << "F1 - " << DCB->NumF1 << " " << DBASE_MAXITEM << endl;
 
 	if (sort_type != nosort) {
@@ -249,6 +251,14 @@ void get_F1() {
 	stats.add(DBASE_MAXITEM, DCB->NumF1, te);
 }
 
+/**
+*
+* Output pointer array to console
+*
+* @param array Pointer array of type int
+* @param size Size of the array
+*
+*/
 void print_array(int* array, int size) {
 	for (int i=0; i<size; i++) {
 		cout << array[i] << " ";
@@ -262,9 +272,11 @@ void get_F2() {
 	int scnt;
 	int tree_id=0;
 
+	// SETUP TIMETRACKER
 	TimeTracker tt;
 	double te;
 
+	// START F2 TIME
 	tt.Start();
 	//itcnt2 is a matrix of pairs p, p.first is count, p.second is flag
 	int **itcnt2 = new int*[DCB->NumF1];
@@ -291,7 +303,7 @@ void get_F2() {
 
 		DCB->get_valid_trans();
 
-		//Elaheh: creating DB array with the valid transaction (removing infrequent items), the size of the transaction will be decreased here.
+		//Creating DB array with the valid transaction (removing infrequent items), the size of the transaction is decreased here
 		if(DCB->TransSz > 1) {
 			tot_trans_cnt++;
 
@@ -333,13 +345,14 @@ void get_F2() {
 			}
 		}
 	} else
-			continue;
+		continue;
 }
 
-		//Sorting the dataset and making treeSz_loc_map to see the location of tree size in the database
+		// SORT DATASET & MAKE treeSz_loc_map TO SEE TREE SIZE LOCATION IN DATABASE
 		int** DB_array_tmp = new int*[tree_id];
 		int loc_in_sorted_db=0;
-		//Sort the DB_array
+		
+		// SORT DB_array
 		for(multimap<int, int>::iterator it=tree_sz_mp.begin(); it!=tree_sz_mp.end();it=tree_sz_mp.upper_bound(it->first)){
 			pair<multimap<int, int>::iterator, multimap<int, int>::iterator>  eql_rng = tree_sz_mp.equal_range(it->first);
 			for(multimap<int, int>::iterator it2=eql_rng.first;it2!=eql_rng.second;it2++){
@@ -354,11 +367,13 @@ void get_F2() {
 
 	int F2cnt = 0;
 
+	// GENERATE NEW HASHTREE
 	CandK = new HashTree(0);
 	CandK->maxdepth() = 1;
 	if (prune_type == prune)
 		FK.clearall();
-	// count frequent patterns and generate eqclass
+	
+	// COUNT FREQUENT PATTERNS & GENERATE eqclass
 	Eqclass *eq;
 	for (i = 0; i < DCB->NumF1; i++) {
 		eq = NULL;
@@ -391,6 +406,7 @@ void get_F2() {
 		}
 	}
 
+	// FREE MEMORY
 	for (i = 0; i < DCB->NumF1; i++) {
 		delete[] itcnt2[i];
 		delete[] flgs[i];
@@ -400,11 +416,16 @@ void get_F2() {
 	delete[] flgs;
 
 	cout << "F2 - " << F2cnt << " " << DCB->NumF1 * DCB->NumF1 << endl;
+	// LOG F2 END TIME
 	te = tt.Stop();
 	stats.add(DCB->NumF1 * DCB->NumF1, F2cnt, te);
 }
 
-
+/**
+*
+* Add node to Eqclass, checks for pruning
+*
+*/
 void add_node(int iter, Eqclass *neq, int val, int pos) {
 	if (prune_type == noprune) {
 		//don't do any pruning
@@ -702,7 +723,11 @@ bool incr_support(Eqclass *eq, int tpos, int ppos, int tscope, stack<int> &stk,
 }
 
 
-
+/**
+*
+* Returns false if Eqnode support is greater than or equal to the minimum support threshold, true if otherwise
+*
+*/
 static bool notfrequent(Eqnode &n) {
 	if (n.sup >= MINSUPPORT)
 		return false;
@@ -737,7 +762,6 @@ bool get_frequent(int iter, HashTree *ht, int &freqcnt) {
 				CandK->count()--;
 			}
 			else {
-				//cout << "push to FK " << eq->nlist().size() << endl;
 				if (prune_type == prune)
 					FK.add(eq);
 				ni++;
@@ -836,48 +860,48 @@ void update_sup(int& candcnt, int& freqcnt, int* gpu_result){
 			candIt++;
 		}
 
-	// CHECK FREQUENCY
-	list<Eqnode>::iterator nj;
-	list<Eqnode>::iterator njj;
-	nj = remove_if(eq->nlist().begin(), eq->nlist().end(), notfrequent);
-	eq->nlist().erase(nj, eq->nlist().end());
-	vector<int>* cand;
-	int cnt;
-	int node_tmp;
-	int depth_pos=0;//the depth position of the parent node of the extension node
+		// CHECK FREQUENCY
+		list<Eqnode>::iterator nj;
+		list<Eqnode>::iterator njj;
+		nj = remove_if(eq->nlist().begin(), eq->nlist().end(), notfrequent);
+		eq->nlist().erase(nj, eq->nlist().end());
+		vector<int>* cand;
+		int cnt;
+		int node_tmp;
+		int depth_pos=0;//the depth position of the parent node of the extension node
 
 
-	freqcnt += eq->nlist().size();
-	if (eq->nlist().empty()) {
-		ei = eql->erase(ei);
-		CandK->count()--;
-    }
-	else {
-		//cout << "push to FK " << eq->nlist().size() << endl;
-		if (prune_type == prune){
-			for(njj = eq->nlist().begin(); njj !=  eq->nlist().end(); njj++){
-                cnt = -1;
-				cand = new vector<int>;
-				for(int j=0; j< eq->prefix().size();j++){
-                   node_tmp = eq->prefix()[j];
-                    if(node_tmp == BranchIt)
-                        cnt--;
-                    else
-                        cnt++;
-                    if(j == njj->pos)
-                    	depth_pos = cnt;
-					(*cand).push_back(eq->prefix()[j]);
-				}
-                while(cnt != depth_pos){
-                    (*cand).push_back(BranchIt);
-                    cnt--;
-                }
-				(*cand).push_back(njj->val);
-                freq_cand.insert((*cand));
-			}
+		freqcnt += eq->nlist().size();
+		if (eq->nlist().empty()) {
+			ei = eql->erase(ei);
+			CandK->count()--;
 		}
-		ei++;
-	}
+		else {
+			//push to Fk
+			if (prune_type == prune){
+				for(njj = eq->nlist().begin(); njj !=  eq->nlist().end(); njj++){
+					cnt = -1;
+					cand = new vector<int>;
+					for(int j=0; j< eq->prefix().size();j++){
+					   node_tmp = eq->prefix()[j];
+						if(node_tmp == BranchIt)
+							cnt--;
+						else
+							cnt++;
+						if(j == njj->pos)
+                    		depth_pos = cnt;
+						(*cand).push_back(eq->prefix()[j]);
+					}
+					while(cnt != depth_pos){
+						(*cand).push_back(BranchIt);
+						cnt--;
+					}
+					(*cand).push_back(njj->val);
+					freq_cand.insert((*cand));
+				}
+			}
+			ei++;
+		}
 
 	}
 
@@ -918,6 +942,7 @@ void get_Fk() {
 		candcnt = 0;
 		freqcnt = 0;
 
+		// GENERATE LIST OF CANDIDATES
 		candidate_generation(iter, CandK, candcnt);
 
 		cand_h = create_cand_array(candcnt,iter);
@@ -961,8 +986,6 @@ void get_Fk() {
 
 		te = tt.Stop();
 		stats.add(candcnt, freqcnt, te);
-
-
 	}
 	if (prune_type == prune){
 		erase_set(freq_cand);
@@ -998,10 +1021,6 @@ void create_gpu_stats(){
     }
 }
 
-void prune_infrq_nodes() {
-  
-}
-
 int main(int argc, char **argv) {
 
 	// START RUN TIME
@@ -1014,7 +1033,6 @@ int main(int argc, char **argv) {
 	// GENERATE DATABASE AND GET F1 & F2 SEQUENCES
 	DCB = new Dbase_Ctrl_Blk(infile->c_str());
 	get_F1();
-	prune_infrq_nodes(); // prune dataset from infrequent nodes 
 	get_F2();
 
 	// GET DEVICE PROPERTIES

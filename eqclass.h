@@ -16,44 +16,43 @@ struct printout: public unary_function<T, void>{
  
 class Eqnode{
 public:
-   int val;
-   int pos;
-   int sup;
+	int val;
+	int pos;
+	int sup;
 
-   map<int, list<vector<int> > > embeddingList;
-   map<int, int> occuringPos;
+	map<int, list<vector<int> > > embeddingList;
+	map<int, int> occuringPos;
 
-   Eqnode(int v, int p, int s);
+	Eqnode(int v, int p, int s);
 
-   friend ostream & operator<<(ostream& ostr, Eqnode& eqn){
-     ostr << eqn.val << " " << eqn.pos << " " << eqn.sup;
-     return ostr;
-   }
+	friend ostream & operator<<(ostream& ostr, Eqnode& eqn){
+		ostr << eqn.val << " " << eqn.pos << " " << eqn.sup;
+		return ostr;
+	}
 };
 
 class Eqclass{
 public:
-    map<int, list<vector<int> > > embeddingList;
-    map<int, int> occuringPos; //Key: the position of the node in the subtree  Value: the position of the occuring in the embeddedlist vectors
-    int maxPos;
+	map<int, list<vector<int> > > embeddingList;
+	map<int, int> occuringPos; //Key: the position of the node in the subtree  Value: the position of the occuring in the embeddedlist vectors
+	int maxPos;
     
  private:
-  vector<int> _prefix;
-  list<Eqnode> _nodelist;
+	vector<int> _prefix;
+	list<Eqnode> _nodelist;
   
- public:
-  Eqclass();
-  ~Eqclass();
+	public:
+	Eqclass();
   
-  vector<int> &prefix(){ return _prefix; }
-  list<Eqnode> &nlist(){ return _nodelist; }
-  int child_of (int pos);
-  void add_node(int val, int pos, int sup=0);
-  int item(int n);
-  void set_prefix(vector<int> &pref, Eqnode &node);
-  int get_scope(int pos, int &scnt); 
-  void print(Dbase_Ctrl_Blk *DCB);
-  friend ostream & operator<<(ostream& ostr, Eqclass& eq);
+	vector<int> &prefix(){ return _prefix; }
+	list<Eqnode> &nlist(){ return _nodelist; }
+	int child_of (int pos);
+	void add_node(int val, int pos, int sup=0);
+	int item(int n);
+	void set_prefix(vector<int> &pref, Eqnode &node);
+	int get_scope(int pos, int &scnt); 
+	void print(Dbase_Ctrl_Blk *DCB);
+	friend ostream & operator<<(ostream& ostr, Eqclass& eq);
 };
 
 #endif
