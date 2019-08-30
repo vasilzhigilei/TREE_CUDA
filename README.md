@@ -15,7 +15,7 @@ This code uses [TreeMiner](http://www.cs.rpi.edu/~zaki/www-new/pmwiki.php/Softwa
         -c,      <True> if printing the frequent subtrees to console. Default is <False>
         -p,      <True> if pruning the database, <False> otherwise. Default is <True>
         -u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True>
-        -o,      output file for results summary. Output is appended, not overwritten. Default is <summary.out>
+        -o,      output file for results summary. Output is appended, not overwritten. Default is "summary.out"
 
 
 You can set "Allow gap between itemsets" to "0" in order to mine the frequent consequtive itemsets. 
