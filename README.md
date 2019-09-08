@@ -1,4 +1,6 @@
 # GPUTreeMiner
+You may find the original code at [Elaheh Sadredini's github repo](https://github.com/elaheh-sadredini/gpuTreeMiner).
+
 BFS implementation of frequent subtree mining on the GPU. It uses shared memory for the generated subtree candidates. GPUTreeMiner provides pruning huristics and both weighted (counts a candidate subtree multiple times in a tree) and unique_count options (counts a candidate subtree once in a tree). 
 
 
