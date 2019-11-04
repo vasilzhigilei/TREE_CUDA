@@ -1,4 +1,6 @@
 # GPUTreeMiner
+You may find the original code at [Elaheh Sadredini's github repo](https://github.com/elaheh-sadredini/gpuTreeMiner).
+
 BFS implementation of frequent subtree mining on the GPU. It uses shared memory for the generated subtree candidates. GPUTreeMiner provides pruning huristics and both weighted (counts a candidate subtree multiple times in a tree) and unique_count options (counts a candidate subtree once in a tree). 
 
 
@@ -15,11 +17,7 @@ This code uses [TreeMiner](http://www.cs.rpi.edu/~zaki/www-new/pmwiki.php/Softwa
         -c,      <True> if printing the frequent subtrees to console. Default is <False>
         -p,      <True> if pruning the database, <False> otherwise. Default is <True>
         -u,      <True> if counting the subtree matches once per tree, <False> if weighted counting. Default is <True>
-<<<<<<< HEAD
         -o,      output file for results summary. Output is appended, not overwritten. Default is "summary.out"
-=======
-        -o,      output file for results summary. Output is appended, not overwritten. Default is <summary.out>
->>>>>>> f324facf7ecd9fd18006d2c38d9e0c203cb41cac
 
 
 You can set "Allow gap between itemsets" to "0" in order to mine the frequent consequtive itemsets. 
