@@ -48,8 +48,8 @@ This database has 3 trees.
  
 ## Contact:
 
-elaheh@virginia.edu
-
+Original author: elaheh@virginia.edu (Elaheh Sadredini)
+Finalizations: vz4sp@virginia.edu (Vasil Zhigilei)
 
 ## Citations:
 Please cite the following papers if you are using this tool for your research. 
