@@ -34,7 +34,7 @@
 ################################################################################
 
 # Location of the CUDA Toolkit
-CUDA_PATH ?= "/usr/local/cuda"
+#CUDA_PATH ?= "/usr/local/cuda"
 
 OSUPPER = $(shell uname -s 2>/dev/null | tr "[:lower:]" "[:upper:]")
 OSLOWER = $(shell uname -s 2>/dev/null | tr "[:upper:]" "[:lower:]")
@@ -71,7 +71,8 @@ endif
 else
   GCC ?= g++
 endif
-NVCC := $(CUDA_PATH)/bin/nvcc -ccbin $(GCC) 
+#NVCC := $(CUDA_PATH)/bin/nvcc -ccbin $(GCC) 
+NVCC := nvcc -ccbin $(GCC)
 
 # internal flags
 NVCCFLAGS   := -m${OS_SIZE} 
@@ -147,7 +148,7 @@ GENCODE_SM35    := -gencode arch=compute_35,code=sm_35
 GENCODE_SM37    := -gencode arch=compute_37,code=sm_37
 GENCODE_SM50    := -gencode arch=compute_50,code=sm_50
 GENCODE_SMXX    := -gencode arch=compute_50,code=compute_50
-GENCODE_FLAGS   ?= $(GENCODE_SM10) $(GENCODE_SM20) $(GENCODE_SM30) $(GENCODE_SM32) $(GENCODE_SM35) $(GENCODE_SM37) $(GENCODE_SM50) $(GENCODE_SMXX)
+GENCODE_FLAGS   ?= $(GENCODE_SM10) $(GENCODE_SM30) $(GENCODE_SM32) $(GENCODE_SM35) $(GENCODE_SM37) $(GENCODE_SM50) $(GENCODE_SMXX)
 
 ################################################################################
 
